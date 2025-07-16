@@ -1,68 +1,72 @@
-# *CLIF Project Title*
+# CLIF to Valeos inpatient
 
-## CLIF VERSION 
-
-[major].[minor]
+## CLIF VERSION 2.1
 
 ## Objective
 
-*Describe the project objective*
+Use CPT procedure codes to identify transplant recipient hospitalizations in comprehensive CLIF database (e.g. all adult inpatients)
 
 ## Required CLIF tables and fields
 
 Please refer to the online [CLIF data dictionary](https://clif-consortium.github.io/website/data-dictionary.html), [ETL tools](https://github.com/clif-consortium/CLIF/tree/main/etl-to-clif-resources), and [specific table contacts](https://github.com/clif-consortium/CLIF?tab=readme-ov-file#relational-clif) for more information on constructing the required tables and fields. 
 
-*List all required tables for the project here, and provide a brief rationale for why they are required.*
+The following 2.0 tables are required:
+1. **patient**: 
+2. **hospitalization**: 
+3. **vitals**: 
+4. **labs**: 
+5. **medication_admin_continuous**
+6. **medication_admin_intermittment**:
+7. **respiratory_support**
 
-Example:
-The following tables are required:
-1. **patient**: `patient_id`, `race_category`, `ethnicity_category`, `sex_category`
-2. **hospitalization**: `patient_id`, `hospitalization_id`, `admission_dttm`, `discharge_dttm`, `age_at_admission`
-3. **vitals**: `hospitalization_id`, `recorded_dttm`, `vital_category`, `vital_value`
-   - `vital_category` = 'heart_rate', 'resp_rate', 'sbp', 'dbp', 'map', 'resp_rate', 'spo2'
-4. **labs**: `hospitalization_id`, `lab_result_dttm`, `lab_category`, `lab_value`
-   - `lab_category` = 'lactate'
-5. **medication_admin_continuous**: `hospitalization_id`, `admin_dttm`, `med_name`, `med_category`, `med_dose`, `med_dose_unit`
-   - `med_category` = "norepinephrine", "epinephrine", "phenylephrine", "vasopressin", "dopamine", "angiotensin", "nicardipine", "nitroprusside", "clevidipine", "cisatracurium"
-6. **respiratory_support**: `hospitalization_id`, `recorded_dttm`, `device_category`, `mode_category`, `tracheostomy`, `fio2_set`, `lpm_set`, `resp_rate_set`, `peep_set`, `resp_rate_obs`
+the following 2.1 tables are required
+8. **crrt_therapy**
+9. **ecmo_mcs**
+10. **patient_procedure**
 
 ## Cohort identification
-*Describe study cohort inclusion and exclusion criteria here*
+
+The cohort will be identified using the following CPT code list
+
+| cpt_code | proc_name                                                     | organ  |
+|----------|---------------------------------------------------------------|--------|
+| 33945    | PR HEART TRANSPLANT W/WO RECIPIENT CARDIECTOMY               | heart  |
+| 33935    | PR HEART-LUNG TRNSPL W/RECIPIENT CARDIECTOMY-PNUMEC          | lung   |
+| 32854    | PR LUNG TRANSPLANT 2 W/CARDIOPULMONARY BYPASS                | lung   |
+| 32852    | PR LUNG TRANSPLANT 1 W/CARDIOPULMONARY BYPASS                | lung   |
+| 32853    | PR LUNG TRANSPLANT 2 W/O CARDIOPULMONARY BYPASS              | lung   |
+| 32851    | PR LUNG TRANSPLANT 1 W/O CARDIOPULMONARY BYPASS              | lung   |
+| 47135    | PR LVR ALTRNSPLJ ORTHOTOPIC PRTL/WHL DON ANY AGE             | liver  |
+| 50360    | PR RENAL ALTRNSPLJ IMPLTJ GRF W/O RCP NEPHRECTOMY            | kidney |
+| 50360    | HC RENAL ALLOTRANSPLANTATION, IMPLANT GRAFT W/O DONOR        | kidney |
+| 50365    | PR RENAL ALTRNSPLJ IMPLTJ GRF W/RCP NEPHRECTOMY              | kidney |
+| 50380    | PR RENAL AUTOTRANSPLANTATION REIMPLANTATION KIDNEY          | kidney |
+
 
 ## Expected Results
 
-*Describe the output of the analysis. The final project results should be saved in the [`output/final`](output/README.md) directory.*
+The initial results will be a database of CLIF tables filtered to transplant recipients `[your institution]_valeos_inpatient_[CLIF table].parquet` These will be in CLIF format, with an additional `transplant` table with columns `patient_id`, `transplant_type`, `recorded_dttm`
+
+Summary tables, statistics, and initial exploratory data analysis will be available in the [`output/final`](output/README.md) directory.
 
 ## Detailed Instructions for running the project
 
 ## 1. Update `config/config.json`
 Follow instructions in the [config/README.md](config/README.md) file for detailed configuration steps.
 
-**Note: if using the `01_run_cohort_id_app.R` file, this step is not necessary as the app will create the config file for the user**
-
 ## 2. Set up the project environment
-
-*Describe the steps to setup the project environment.*
-
-Example for R:
-Run `00_renv_restore.R` in the [code](code/templates/R) to set up the project environment
 
 Example for Python:
 Open your terminal and run the following commands:
 ```
-python3 -m venv .mobilization
-source .mobilization/bin/activate
+python3 -m venv .valeos_inpatient
+source .valeos_inpatient/bin/activate
 pip install -r requirements.txt 
 ```
 
 ## 3. Run code
-
 Detailed instructions on the code workflow are provided in the [code directory](code/README.md)
 
-## Example Repositories
-* [CLIF Adult Sepsis Events](https://github.com/08wparker/CLIF_sepsis) for R
-* [CLIF Eligibility for mobilization](https://github.com/kaveriC/CLIF-eligibility-for-mobilization) for Python
-* [CLIF Variation in Ventilation](https://github.com/ingra107/clif_vent_variation)
 ---
 
 
