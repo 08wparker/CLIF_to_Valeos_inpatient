@@ -4,6 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 For all tasks, use the CLIF schema files in the references/mCIDE directory and the clif_2.1.0.txt file to understand the data structure.
 
+## Beginning of a session
+
+Start by pulling any changes from the main branch.
+
+
 ## Standard Workflow
 0. Check the screenshots folder to see if any new screenshots have been added, if so analyze them before planning the task
 1. First think through the problem, read the codebase for relevant files, and write a plan to todo.md.
