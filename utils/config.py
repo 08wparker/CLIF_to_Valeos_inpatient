@@ -2,7 +2,7 @@ import json
 import os
 
 def load_config():
-    json_path = os.path.join("config", "config.json")
+    json_path = os.path.join("..", "config", "config.json")
     
     if os.path.exists(json_path):
         with open(json_path, 'r') as file:

@@ -1,32 +1,27 @@
-# R specific gitignores
-.Rprofile
-.Rhistory
-.Rprofile
-.Ruserdata
-.DS_Store
-*.Rproj
-.Rproj.user
+# Only commit code/, outlier-thresholds/, and references/ directories
+# Ignore everything else by default
+*
 
-## ignore the renv initialization file
-initialize_renv.R
+# Exception: Always commit these directories and their contents
+!code/
+!code/**
+!outlier-thresholds/
+!outlier-thresholds/**
+!references/
+!references/**
 
-## ignore filtered CLIF tables stored as Rdata
-*.RData
+# Exception: Always commit these specific files
+!.gitignore
+!README.md
+!CLAUDE.md
+!requirements.txt
+!setup_env.sh
 
-#ignore source CLIF_ files 
-CLIF_*.parquet
-CLIF_*.csv
-CLIF_*.fst
-
-#ignore the identifier app
-CLIF_cohort_identifier*
-
-# ignore file used to initialize renv when creating the template
-initialize_renv.R
-
-# ignore filtered CLIF tables stored as Rdata
-*.RData
-
-# ignore pdf reports and rendered html
-*.pdf
-*.html
+# Always ignore these file types regardless of location
+**/*.pyc
+**/*.pyo
+**/__pycache__/
+**/.DS_Store
+**/*.log
+**/*.tmp
+**/*.temp
