@@ -56,12 +56,9 @@ Follow instructions in the [config/README.md](config/README.md) file for detaile
 
 ## 2. Set up the project environment
 
-Example for Python:
-Open your terminal and run the following commands:
+Open your terminal and run the setup script:
 ```
-python3 -m venv .valeos_inpatient
-source .valeos_inpatient/bin/activate
-pip install -r requirements.txt 
+./setup_env.sh
 ```
 
 ## 3. Run code
