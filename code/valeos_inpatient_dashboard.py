@@ -213,6 +213,7 @@ def _():
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
     import altair as alt
+    import seaborn as sns
 
     # Add utils directory relative to current script location
     CURRENT_DIR = Path(__file__).resolve().parent
@@ -220,7 +221,7 @@ def _():
     sys.path.append(str(UTILS_DIR))
 
     from load_config import load_config
-    return Path, alt, load_config, mo, pd
+    return Path, alt, load_config, mo, pd, plt, sns
 
 
 @app.cell
@@ -515,7 +516,7 @@ def _(mo, organ_selected, organ_selected_individual, valeos_transplant_df):
 
 
 @app.cell
-def _(alt, pd):
+def _(pd, plt, sns):
     def create_patient_vasoactive_chart(patient_id, vasoactive_drug, med_df, transplant_df, hosp_df):
         """Create individual patient vasoactive course chart using proper CLIF data structure"""
         if patient_id is None or vasoactive_drug is None or med_df is None or transplant_df is None or hosp_df is None:
@@ -574,81 +575,39 @@ def _(alt, pd):
         transplant_days = (transplant_date - admission_date).total_seconds() / (24 * 3600)
         discharge_days = (discharge_date - admission_date).total_seconds() / (24 * 3600)
 
-        # Create base chart
-        base_chart = alt.Chart(patient_med_data).add_selection(
-            alt.selection_interval()
-        )
+        # Create seaborn plot
+        plt.style.use('default')  # Reset to default style
+        fig, ax = plt.subplots(figsize=(10, 6))
 
-        # Medication dose line
-        dose_line = base_chart.mark_line(
-            point=alt.OverlayMarkDef(filled=False, fill='white', strokeWidth=2),
-            color='steelblue',
-            strokeWidth=2
-        ).encode(
-            x=alt.X('days_since_admission:Q', 
-                   axis=alt.Axis(title='Days Since Admission')),
-            y=alt.Y('med_dose:Q', 
-                   axis=alt.Axis(title=f'{vasoactive_drug.title()} Dose (mcg/kg/min)')),
-            tooltip=['admin_dttm:T', 'med_dose:Q', 'days_since_admission:Q']
-        )
+        # Plot medication dose line with points
+        sns.lineplot(data=patient_med_data, x='days_since_admission', y='med_dose', 
+                    ax=ax, marker='o', markersize=4, linewidth=2, color='steelblue')
 
-        # Create combined reference lines with unified legend
-        reference_lines_data = pd.DataFrame({
-            'day': [0, transplant_days, discharge_days],
-            'event_type': ['Admission', 'Transplant', 'Discharge'],
-            'description': [
-                'Admission (Day 0)',
-                f'Transplant (Day {transplant_days:.1f})',
-                f'Discharge (Day {discharge_days:.1f})'
-            ]
-        })
+        # Add reference lines with discharge category in legend
+        ax.axvline(x=0, color='blue', linestyle=':', linewidth=2, alpha=0.8, label='Admission (Day 0)')
+        ax.axvline(x=transplant_days, color='green', linestyle='--', linewidth=3, alpha=0.8, 
+                  label=f'Transplant (Day {transplant_days:.1f})')
+        ax.axvline(x=discharge_days, color='orange', linestyle=':', linewidth=2, alpha=0.8, 
+                  label=f'Discharge (Day {discharge_days:.1f}) to {discharge_category}')
 
-        # Create reference lines with unified legend
-        reference_lines = alt.Chart(reference_lines_data).mark_rule(
-            strokeWidth=2
-        ).encode(
-            x='day:Q',
-            color=alt.Color('event_type:N',
-                          scale=alt.Scale(
-                              domain=['Admission', 'Transplant', 'Discharge'],
-                              range=['blue', 'green', 'orange']
-                          ),
-                          legend=alt.Legend(title="Key Events", orient='top-right')),
-            strokeDash=alt.StrokeDash('event_type:N',
-                                   scale=alt.Scale(
-                                       domain=['Admission', 'Transplant', 'Discharge'],
-                                       range=[[2, 2], [5, 5], [2, 2]]
-                                   )),
-            tooltip=['description:N']
-        )
+        # Formatting
+        ax.set_xlabel('Days Since Admission', fontsize=12)
+        ax.set_ylabel(f'{vasoactive_drug.title()} Dose (mcg/kg/min)', fontsize=12)
+        ax.set_title(f'{vasoactive_drug.title()} Course - {organ_type.title()} Transplant - Patient {patient_id}', 
+                    fontsize=14, fontweight='bold')
 
-        # Discharge category annotation
-        discharge_annotation = alt.Chart(pd.DataFrame({
-            'x': [discharge_days],
-            'y': [patient_med_data['med_dose'].max() * 0.9],  # Position near top of chart
-            'text': [f'Discharge: {discharge_category}']
-        })).mark_text(
-            align='center',
-            baseline='bottom',
-            fontSize=12,
-            fontWeight='bold',
-            color='orange'
-        ).encode(
-            x='x:Q',
-            y='y:Q',
-            text='text:N'
-        )
+        # Add legend in better position
+        ax.legend(loc='upper right', frameon=True, fancybox=True, shadow=True)
 
-        # Combine charts
-        chart = (dose_line + reference_lines + discharge_annotation).resolve_scale(
-            y='independent'
-        ).properties(
-            width=700,
-            height=400,
-            title=f'{vasoactive_drug.title()} Course - {organ_type.title()} Transplant - Patient {patient_id}'
-        )
+        # Grid for better readability
+        ax.grid(True, alpha=0.3)
 
-        return chart, None
+        # Set y-axis to start at 0
+        ax.set_ylim(bottom=0)
+
+        plt.tight_layout()
+
+        return fig, None
 
 
     return (create_patient_vasoactive_chart,)
@@ -678,7 +637,7 @@ def _(
     if vaso_error_msg:
         patient_vasoactive_display = mo.md(f"**{vaso_error_msg}**")
     elif patient_chart is not None:
-        patient_vasoactive_display = mo.ui.altair_chart(patient_chart)
+        patient_vasoactive_display = mo.as_html(patient_chart)
     else:
         patient_vasoactive_display = mo.md("**No chart data available**")
     return (patient_vasoactive_display,)
