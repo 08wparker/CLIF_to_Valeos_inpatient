@@ -58,8 +58,10 @@ Follow instructions in the [config/README.md](config/README.md) file for detaile
 
 Open your terminal and run the setup script:
 ```
-./setup_env.sh
+source ./setup_env.sh
 ```
+
+This will create and activate the virtual environment in your current shell session.
 
 ## 3. Run code
 Detailed instructions on the code workflow are provided in the [code directory](code/README.md)

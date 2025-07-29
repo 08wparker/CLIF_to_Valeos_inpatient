@@ -444,7 +444,7 @@ def _(pd, valeos_patient_df, valeos_transplant_df):
     return (demographics_table,)
 
 
-@app.cell(column=1)
+@app.cell(column=1, hide_code=True)
 def _(mo, valeos_transplant_df):
     # create organ selector 
     mo.md(r"""## Patient Selector""")
@@ -487,7 +487,14 @@ def _(patient_vasoactive_display):
 
 
 @app.cell
-def _(mo, organ_selected, organ_selected_individual, valeos_transplant_df):
+def _(
+    mo,
+    organ_selected,
+    organ_selected_individual,
+    valeos_hospitalization_df,
+    valeos_med_continuous_df,
+    valeos_transplant_df,
+):
     # Get the selected organ value
     selected_organ_individual = organ_selected_individual.value if hasattr(organ_selected, 'value') else None
 
@@ -495,11 +502,28 @@ def _(mo, organ_selected, organ_selected_individual, valeos_transplant_df):
     if selected_organ_individual and valeos_transplant_df is not None:
         filtered_patient_options = valeos_transplant_df[valeos_transplant_df['transplant_type'] == selected_organ_individual]['patient_id'].unique().tolist()
 
+        # Find a patient with dobutamine data (default vasoactive drug)
+        default_patient = None
+        if valeos_med_continuous_df is not None and valeos_hospitalization_df is not None:
+            for pt_id in filtered_patient_options:
+                # Get patient's hospitalizations
+                patient_hosp_ids = valeos_hospitalization_df[valeos_hospitalization_df['patient_id'] == pt_id]['hospitalization_id'].unique()
+
+                # Check if patient has dobutamine data
+                has_dobutamine = valeos_med_continuous_df[
+                    (valeos_med_continuous_df['hospitalization_id'].isin(patient_hosp_ids)) & 
+                    (valeos_med_continuous_df['med_category'] == 'dobutamine')
+                ].shape[0] > 0
+
+                if has_dobutamine:
+                    default_patient = pt_id
+                    break
+
         # Create or update the patient selector with the filtered options
         patient_selected = mo.ui.dropdown(
             options=filtered_patient_options,
             label="Select patient ID:",
-            value=filtered_patient_options[0] if filtered_patient_options else None
+            value=default_patient if default_patient else (filtered_patient_options[0] if filtered_patient_options else None)
         )
 
         # Create vasoactive drug selector
@@ -623,6 +647,7 @@ def _(
     valeos_transplant_df,
     vasoactive_selected,
 ):
+
     # get patient ID from patient_selected
     patient_id = patient_selected.value if hasattr(patient_selected, 'value') else None
 
