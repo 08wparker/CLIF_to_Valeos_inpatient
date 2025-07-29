@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-For all tasks, use the CLIF schema files in the references/mCIDE directory and the clif_2.1.0.txt file to understand the data structure.
+For all tasks, use the CLIF schema files in the references/mCIDE directory, the clif_2.1.0.txt file, and the CLIF data dictionary (clif-icu.com_data-dictionary_data-dictionary-2.0.0.md) to understand the data structure and column names.
 
 ## Beginning of a session
 
@@ -11,7 +11,7 @@ Start by pulling any changes from the main branch.
 
 ## Standard Workflow
 0. Check the screenshots folder to see if any new screenshots have been added, if so analyze them before planning the task
-1. First think through the problem, read the codebase for relevant files, and write a plan to todo.md.
+1. First think through the problem, read the codebase for relevant files, and **consult the CLIF data dictionary** (clif-icu.com_data-dictionary_data-dictionary-2.0.0.md) for correct table and column names, then write a plan to todo.md.
 2. The plan should have a list of todo items that you can check off as you complete them
 3. Before you begin working, check in with me and I will verify the plan.
 4. Then, begin working on the todo items, marking them as complete as you go.
@@ -69,3 +69,27 @@ pip install -r requirements.txt
 Results should follow the pattern: `[RESULT_NAME]_[SITE_NAME]_[SYSTEM_TIME].pdf`
 
 Use the config object to get the site name for consistent file naming across the project.
+
+## CLIF DateTime Handling
+
+**Important**: CLIF uses timezone-aware datetimes in UTC format (YYYY-MM-DD HH:MM:SS+00:00). When working with dates and times:
+
+1. **Always handle timezone-awareness**: Use `pd.to_datetime(date_col, utc=True)` for datetime columns
+2. **Convert birth_date to UTC**: Use `.tz_localize('UTC')` since birth_date is typically date-only
+3. **Calculate ages correctly**: Use timezone-aware datetime arithmetic to avoid errors
+4. **Store timezone info in config**: CLIF projects store timezone information in the configuration file
+
+## Marimo Notebook Guidelines
+
+When working with marimo notebooks in this project:
+
+1. **Avoid Variable Redefinition**: Marimo tracks variable dependencies across cells. Never reuse common variable names like `df`, `table_name`, `data`, etc. across different cells as this causes "variable redefinition" errors.
+
+2. **Use Descriptive Variable Names**: Instead of generic names, use specific names like:
+   - `df` → `patient_df`, `vitals_df`, `labs_df`
+   - `table_name` → `tbl_name`, `current_table`
+   - `data` → `filtered_data`, `export_data`
+
+3. **Check Dependencies**: Before creating new cells, ensure variable names don't conflict with existing cell outputs.
+
+This prevents marimo from showing "This cell wasn't run because it has errors" due to variable conflicts.
