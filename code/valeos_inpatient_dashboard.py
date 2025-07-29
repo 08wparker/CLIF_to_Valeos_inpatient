@@ -2,14 +2,28 @@ import marimo
 
 __generated_with = "0.14.13"
 app = marimo.App(
-    width="medium",
+    width="columns",
     layout_file="layouts/valeos_inpatient_dashboard.grid.json",
 )
 
 
-@app.cell(hide_code=True)
-def _(config, mo):
-    mo.md(f"""# Valeos inpatient transplant dashboard: {config["site_name"]}""")
+@app.cell(column=0)
+def _(mo, site_name):
+    mo.md(f"""# Valeos inpatient transplant dashboard: {site_name}""")
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(
+        r"""
+    ## Patient Demographics by Organ Type
+
+    **Privacy Notice**: This dashboard shows all demographic breakdowns, including small cell counts. 
+    When exporting or sharing results externally, cells with <10 patients should be suppressed 
+    to protect patient privacy and prevent potential re-identification.
+    """
+    )
     return
 
 
@@ -27,7 +41,7 @@ def _(mo):
 
 @app.cell
 def _(demographics_table, mo):
-    organ_selected = mo.ui.radio(
+    organ_selected = mo.ui.dropdown(
         options=demographics_table.columns,
         label="Select organ type for volume analysis:",
         value="Overall"  # Set Overall as default
@@ -43,7 +57,7 @@ def _(chart_display):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(alt, config, mo, organ_selected, pd, valeos_transplant_df):
     def create_volume_chart_data(transplant_df, selected_organ):
         """Prepare data for Altair chart"""
@@ -219,12 +233,6 @@ def _(load_config):
 
 
 @app.cell
-def _(mo):
-    mo.md(r"""## Load Valeos Database""")
-    return
-
-
-@app.cell
 def _(Path, config, pd):
     # Load Valeos tables
     tables_path = Path(config['tables_path'])
@@ -247,12 +255,15 @@ def _(Path, config, pd):
     valeos_transplant_df = load_valeos_table('transplant')
 
     # Load additional clinical tables
+    valeos_hospitalization_df = load_valeos_table('hospitalization')
     valeos_vitals_df = load_valeos_table('vitals')
     valeos_labs_df = load_valeos_table('labs')
     valeos_respiratory_df = load_valeos_table('respiratory_support')
     valeos_med_continuous_df = load_valeos_table('medication_admin_continuous')
 
     return (
+        site_name,
+        valeos_hospitalization_df,
         valeos_labs_df,
         valeos_med_continuous_df,
         valeos_patient_df,
@@ -260,12 +271,6 @@ def _(Path, config, pd):
         valeos_transplant_df,
         valeos_vitals_df,
     )
-
-
-@app.cell
-def _(mo):
-    mo.md(r"""## Clinical Data Summary""")
-    return
 
 
 @app.cell
@@ -295,12 +300,6 @@ def _(
 
 
 @app.cell
-def _(mo):
-    mo.md(r"""## Data Inspection""")
-    return
-
-
-@app.cell
 def _(valeos_patient_df, valeos_transplant_df):
     # First, let's inspect the patient table columns
     if valeos_patient_df is not None:
@@ -316,21 +315,7 @@ def _(valeos_patient_df, valeos_transplant_df):
     return
 
 
-@app.cell
-def _(mo):
-    mo.md(
-        r"""
-    ## Patient Demographics by Organ Type
-
-    **Privacy Notice**: This dashboard shows all demographic breakdowns including small cell counts. 
-    When exporting or sharing results externally, cells with <10 patients should be suppressed 
-    to protect patient privacy and prevent potential re-identification.
-    """
-    )
-    return
-
-
-@app.cell
+@app.cell(hide_code=True)
 def _(pd, valeos_patient_df, valeos_transplant_df):
     def create_demographics_table(patient_df, transplant_df):
         """Create demographics table with organ types as columns and demographic categories as rows"""
@@ -418,23 +403,28 @@ def _(pd, valeos_patient_df, valeos_transplant_df):
         else:
             stats['Male (%)'] = "N/A"
 
-        # Race categories - each as separate row
+        # Race categories - top 3 only
         if 'race_category' in unique_patients.columns:
             race_counts = unique_patients['race_category'].fillna('Unknown').value_counts()
             total_patients = len(unique_patients)
-            for race in race_counts.index:
-                count = race_counts[race]
+            # Get top 3 race categories
+            top_3_races = race_counts.head(3)
+            for race in top_3_races.index:
+                count = top_3_races[race]
                 pct = (count / total_patients) * 100
                 stats[f'Race - {race}'] = f"{count} ({pct:.1f}%)"
 
-        # Ethnicity categories - each as separate row
+        # Hispanic ethnicity as separate line
         if 'ethnicity_category' in unique_patients.columns:
             ethnicity_counts = unique_patients['ethnicity_category'].fillna('Unknown').value_counts()
             total_patients = len(unique_patients)
-            for ethnicity in ethnicity_counts.index:
-                count = ethnicity_counts[ethnicity]
-                pct = (count / total_patients) * 100
-                stats[f'Ethnicity - {ethnicity}'] = f"{count} ({pct:.1f}%)"
+            # Only show Hispanic if it exists
+            if 'Hispanic' in ethnicity_counts.index:
+                hispanic_count = ethnicity_counts['Hispanic']
+                hispanic_pct = (hispanic_count / total_patients) * 100
+                stats['Hispanic/Latino (%)'] = f"{hispanic_count} ({hispanic_pct:.1f}%)"
+            else:
+                stats['Hispanic/Latino (%)'] = "0 (0.0%)"
 
         # Language categories - each as separate row
         if 'language_category' in unique_patients.columns:
@@ -451,6 +441,247 @@ def _(pd, valeos_patient_df, valeos_transplant_df):
     demographics_table = create_demographics_table(valeos_patient_df, valeos_transplant_df)
 
     return (demographics_table,)
+
+
+@app.cell(column=1)
+def _(mo, valeos_transplant_df):
+    # create organ selector 
+    mo.md(r"""## Patient Selector""")
+    # Create organ
+    organ_options = valeos_transplant_df['transplant_type'].unique().tolist()
+
+    organ_selected_individual = mo.ui.dropdown(
+        options=organ_options,
+        label="Select organ type for patient selection:",
+        value='heart'  # Set Overall as default
+    )
+
+
+    organ_selected_individual
+    return (organ_selected_individual,)
+
+
+@app.cell
+def _(patient_selected):
+    patient_selected
+    return
+
+
+@app.cell
+def _(vasoactive_selected):
+    vasoactive_selected
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""## Individual Patient Vasoactive Course""")
+    return
+
+
+@app.cell
+def _(patient_vasoactive_display):
+    patient_vasoactive_display
+    return
+
+
+@app.cell
+def _(mo, organ_selected, organ_selected_individual, valeos_transplant_df):
+    # Get the selected organ value
+    selected_organ_individual = organ_selected_individual.value if hasattr(organ_selected, 'value') else None
+
+    # Filter patients based on the selected organ
+    if selected_organ_individual and valeos_transplant_df is not None:
+        filtered_patient_options = valeos_transplant_df[valeos_transplant_df['transplant_type'] == selected_organ_individual]['patient_id'].unique().tolist()
+
+        # Create or update the patient selector with the filtered options
+        patient_selected = mo.ui.dropdown(
+            options=filtered_patient_options,
+            label="Select patient ID:",
+            value=filtered_patient_options[0] if filtered_patient_options else None
+        )
+
+        # Create vasoactive drug selector
+        vasoactive_selected = mo.ui.radio(
+            options=['norepinephrine', 'dobutamine'],
+            label="Select vasoactive drug:",
+            value='dobutamine'
+        )
+    else:
+        mo.md("**No transplant data available for patient selection**")
+        patient_selected = None
+        vasoactive_selected = None
+    return patient_selected, vasoactive_selected
+
+
+@app.cell
+def _(alt, pd):
+    def create_patient_vasoactive_chart(patient_id, vasoactive_drug, med_df, transplant_df, hosp_df):
+        """Create individual patient vasoactive course chart using proper CLIF data structure"""
+        if patient_id is None or vasoactive_drug is None or med_df is None or transplant_df is None or hosp_df is None:
+            return None, "Missing required data"
+
+        # Get patient transplant info
+        patient_transplant = transplant_df[transplant_df['patient_id'] == patient_id]
+        if patient_transplant.empty:
+            return None, f"No transplant data found for patient {patient_id}"
+
+        transplant_date = pd.to_datetime(patient_transplant.iloc[0]['transplant_date'], utc=True)
+        organ_type = patient_transplant.iloc[0]['transplant_type']
+
+        # Get patient's hospitalizations to find hospitalization_ids (CLIF key structure)
+        patient_hospitalizations = hosp_df[hosp_df['patient_id'] == patient_id].copy()
+        if patient_hospitalizations.empty:
+            return None, f"No hospitalization data found for patient {patient_id}"
+
+        # Get hospitalization IDs for this patient
+        patient_hosp_ids = patient_hospitalizations['hospitalization_id'].unique()
+
+        # Filter medication data using hospitalization_id (CLIF standard approach)
+        patient_med_data = med_df[
+            (med_df['hospitalization_id'].isin(patient_hosp_ids)) & 
+            (med_df['med_category'] == vasoactive_drug)
+        ].copy()
+
+        if patient_med_data.empty:
+            return None, f"No {vasoactive_drug} data found for patient {patient_id}"
+
+        # Find the transplant hospitalization (contains transplant_date)
+        patient_hospitalizations['admission_dttm'] = pd.to_datetime(patient_hospitalizations['admission_dttm'], utc=True)
+        patient_hospitalizations['discharge_dttm'] = pd.to_datetime(patient_hospitalizations['discharge_dttm'], utc=True)
+
+        # Find hospitalization that contains the transplant date
+        transplant_hosp = patient_hospitalizations[
+            (patient_hospitalizations['admission_dttm'] <= transplant_date) &
+            (patient_hospitalizations['discharge_dttm'] >= transplant_date)
+        ]
+
+        if transplant_hosp.empty:
+            return None, f"Cannot find transplant hospitalization for patient {patient_id}"
+
+        admission_date = transplant_hosp.iloc[0]['admission_dttm']
+        discharge_date = transplant_hosp.iloc[0]['discharge_dttm']
+        discharge_category = transplant_hosp.iloc[0]['discharge_category'] if 'discharge_category' in transplant_hosp.columns else 'Unknown'
+
+        # Process medication dates and calculate days since admission
+        patient_med_data['admin_dttm'] = pd.to_datetime(patient_med_data['admin_dttm'], utc=True)
+        patient_med_data = patient_med_data.sort_values('admin_dttm')
+
+        patient_med_data['days_since_admission'] = (
+            patient_med_data['admin_dttm'] - admission_date
+        ).dt.total_seconds() / (24 * 3600)
+
+        transplant_days = (transplant_date - admission_date).total_seconds() / (24 * 3600)
+        discharge_days = (discharge_date - admission_date).total_seconds() / (24 * 3600)
+
+        # Create base chart
+        base_chart = alt.Chart(patient_med_data).add_selection(
+            alt.selection_interval()
+        )
+
+        # Medication dose line
+        dose_line = base_chart.mark_line(
+            point=alt.OverlayMarkDef(filled=False, fill='white', strokeWidth=2),
+            color='steelblue',
+            strokeWidth=2
+        ).encode(
+            x=alt.X('days_since_admission:Q', 
+                   axis=alt.Axis(title='Days Since Admission')),
+            y=alt.Y('med_dose:Q', 
+                   axis=alt.Axis(title=f'{vasoactive_drug.title()} Dose (mcg/kg/min)')),
+            tooltip=['admin_dttm:T', 'med_dose:Q', 'days_since_admission:Q']
+        )
+
+        # Create combined reference lines with unified legend
+        reference_lines_data = pd.DataFrame({
+            'day': [0, transplant_days, discharge_days],
+            'event_type': ['Admission', 'Transplant', 'Discharge'],
+            'description': [
+                'Admission (Day 0)',
+                f'Transplant (Day {transplant_days:.1f})',
+                f'Discharge (Day {discharge_days:.1f})'
+            ]
+        })
+
+        # Create reference lines with unified legend
+        reference_lines = alt.Chart(reference_lines_data).mark_rule(
+            strokeWidth=2
+        ).encode(
+            x='day:Q',
+            color=alt.Color('event_type:N',
+                          scale=alt.Scale(
+                              domain=['Admission', 'Transplant', 'Discharge'],
+                              range=['blue', 'green', 'orange']
+                          ),
+                          legend=alt.Legend(title="Key Events", orient='top-right')),
+            strokeDash=alt.StrokeDash('event_type:N',
+                                   scale=alt.Scale(
+                                       domain=['Admission', 'Transplant', 'Discharge'],
+                                       range=[[2, 2], [5, 5], [2, 2]]
+                                   )),
+            tooltip=['description:N']
+        )
+
+        # Discharge category annotation
+        discharge_annotation = alt.Chart(pd.DataFrame({
+            'x': [discharge_days],
+            'y': [patient_med_data['med_dose'].max() * 0.9],  # Position near top of chart
+            'text': [f'Discharge: {discharge_category}']
+        })).mark_text(
+            align='center',
+            baseline='bottom',
+            fontSize=12,
+            fontWeight='bold',
+            color='orange'
+        ).encode(
+            x='x:Q',
+            y='y:Q',
+            text='text:N'
+        )
+
+        # Combine charts
+        chart = (dose_line + reference_lines + discharge_annotation).resolve_scale(
+            y='independent'
+        ).properties(
+            width=700,
+            height=400,
+            title=f'{vasoactive_drug.title()} Course - {organ_type.title()} Transplant - Patient {patient_id}'
+        )
+
+        return chart, None
+
+
+    return (create_patient_vasoactive_chart,)
+
+
+@app.cell
+def _(
+    create_patient_vasoactive_chart,
+    mo,
+    patient_selected,
+    valeos_hospitalization_df,
+    valeos_med_continuous_df,
+    valeos_transplant_df,
+    vasoactive_selected,
+):
+    # get patient ID from patient_selected
+    patient_id = patient_selected.value if hasattr(patient_selected, 'value') else None
+
+    # get vasoactive drug from vasoactive_selected
+    vasoactive_drug = vasoactive_selected.value if hasattr(vasoactive_selected, 'value') else None
+
+    # Create chart
+    patient_chart, vaso_error_msg = create_patient_vasoactive_chart(
+        patient_id, vasoactive_drug, valeos_med_continuous_df, valeos_transplant_df, valeos_hospitalization_df
+    )
+
+    if vaso_error_msg:
+        patient_vasoactive_display = mo.md(f"**{vaso_error_msg}**")
+    elif patient_chart is not None:
+        patient_vasoactive_display = mo.ui.altair_chart(patient_chart)
+    else:
+        patient_vasoactive_display = mo.md("**No chart data available**")
+    return (patient_vasoactive_display,)
 
 
 if __name__ == "__main__":

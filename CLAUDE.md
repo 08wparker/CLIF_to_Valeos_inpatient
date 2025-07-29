@@ -70,6 +70,18 @@ Results should follow the pattern: `[RESULT_NAME]_[SITE_NAME]_[SYSTEM_TIME].pdf`
 
 Use the config object to get the site name for consistent file naming across the project.
 
+## CLIF Data Structure and Keys
+
+**Critical**: Understanding CLIF table relationships and primary keys:
+
+1. **Patient Table**: Primary key is `patient_id` - contains demographic and static patient information
+2. **All Other CLIF Tables**: Primary key is `hospitalization_id` - contains time-varying clinical data during hospitalizations
+3. **Table Relationships**: 
+   - `patient` table: `patient_id` (one-to-many with hospitalizations)
+   - All clinical tables: `hospitalization_id` (vitals, labs, medications, respiratory_support, etc.)
+   - To link patient demographics to clinical data: JOIN patient ON hospitalization.patient_id
+4. **Data Filtering**: When filtering clinical data by patient, always use `hospitalization_id` from the hospitalization table, never filter clinical tables directly by `patient_id`
+
 ## CLIF DateTime Handling
 
 **Important**: CLIF uses timezone-aware datetimes in UTC format (YYYY-MM-DD HH:MM:SS+00:00). When working with dates and times:

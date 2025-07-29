@@ -5,3 +5,5 @@ seaborn
 pyarrow
 marimo
 altair
+openai
+ruff
