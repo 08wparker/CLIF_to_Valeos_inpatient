@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 For all tasks, use the CLIF schema files in the references/mCIDE directory, the clif_2.1.0.txt file, and the CLIF data dictionary (clif-icu.com_data-dictionary_data-dictionary-2.0.0.md) to understand the data structure and column names.
 
+In CLIF, *_category variables have a set of permissible values that are defined in the references/mCIDE directory. Read these when working with category variables to ensure you are using the correct permissible values.
+
 ## Beginning of a session
 
 Start by pulling any changes from the main branch.
@@ -16,7 +18,7 @@ Start by pulling any changes from the main branch.
 3. Before you begin working, check in with me and I will verify the plan.
 4. Then, begin working on the todo items, marking them as complete as you go.
 5. Please every step of the way just give me a high level explanation of what changes you made
-6. Make every task and code change you do as simple as possible. We want to avoid making any massive or complex changes. Every change should impact as little code as possible. Everything is about simplicity.
+6. Make every task and code change you do as simple as possible. Make your code changes adhere to the CLIF schema and the marimo rules. We want to avoid making any massive or complex changes. Every change should impact as little code as possible. Everything is about simplicity.
 7. Finally, add a review section to the todo.md file with a summary of the changes you made and any other relevant information.
 
 
@@ -93,7 +95,7 @@ Use the config object to get the site name for consistent file naming across the
 
 ## Marimo Notebook Guidelines
 
-When working with marimo notebooks in this project:
+This project is built using marimo notebooks. There are important coding rules to follow to avoid errors:
 
 1. **Avoid Variable Redefinition**: Marimo tracks variable dependencies across cells. Never reuse common variable names like `df`, `table_name`, `data`, etc. across different cells as this causes "variable redefinition" errors.
 
