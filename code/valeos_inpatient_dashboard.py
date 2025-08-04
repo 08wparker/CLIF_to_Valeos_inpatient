@@ -443,17 +443,17 @@ def _(yearly_chart_display):
 
 
 @app.cell(hide_code=True)
-def _(alt, config, pd, valeos_transplant_df):
+def _(alt, config, mo, pd, valeos_transplant_df):
     def create_yearly_volume_chart(transplant_df):
         """Create yearly transplant volume chart"""
         if transplant_df is None:
             return None, "No transplant data available"
-        
+
         # Convert transplant_date to datetime with UTC timezone
         work_df = transplant_df.copy()
         work_df['transplant_date'] = pd.to_datetime(work_df['transplant_date'], utc=True)
         work_df['year'] = work_df['transplant_date'].dt.year
-        
+
         # Define consistent color scheme for all organ types
         organ_colors = {
             'kidney': '#1f77b4',    # Blue
@@ -461,15 +461,15 @@ def _(alt, config, pd, valeos_transplant_df):
             'heart': '#2ca02c',     # Green
             'lung': '#d62728',      # Red
         }
-        
+
         # Group by year and organ type
         yearly_counts = work_df.groupby(['year', 'transplant_type']).size().reset_index(name='count')
-        
+
         # Get full year range
         min_year = work_df['year'].min()
         max_year = work_df['year'].max()
         year_range = list(range(min_year, max_year + 1))
-        
+
         # Create complete year x organ grid to include zero years
         year_organ_grid = []
         for year in year_range:
@@ -491,9 +491,9 @@ def _(alt, config, pd, valeos_transplant_df):
                             'transplant_type': organ,
                             'count': 0
                         })
-        
+
         chart_data = pd.DataFrame(year_organ_grid)
-        
+
         # Create Altair stacked bar chart
         yearly_chart = alt.Chart(chart_data).mark_bar().add_selection(
             alt.selection_interval()
@@ -514,19 +514,19 @@ def _(alt, config, pd, valeos_transplant_df):
             height=350,
             title=f'Annual Transplant Volume - {config["site_name"]}'
         )
-        
+
         return yearly_chart, None
-    
+
     # Create yearly chart
     yearly_volume_chart, yearly_error_msg = create_yearly_volume_chart(valeos_transplant_df)
-    
+
     if yearly_error_msg:
         yearly_chart_display = mo.md(f"**{yearly_error_msg}**")
     elif yearly_volume_chart is not None:
         yearly_chart_display = mo.ui.altair_chart(yearly_volume_chart)
     else:
         yearly_chart_display = mo.md("**No yearly data available for chart**")
-    
+
     return (yearly_chart_display,)
 
 
@@ -1197,6 +1197,275 @@ def _(pd, plt):
         return fig, None
 
     return (create_population_vasoactive_trajectory,)
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""## Population Liver Function Tests
+
+    This visualization shows liver function test trends around transplant for different organ types. 
+    The chart displays median values with interquartile range (IQR) bars and normal reference ranges.
+
+    **Tests included:**
+    - Total Bilirubin (mg/dL)
+    - ALT - Alanine Aminotransferase (U/L) 
+    - AST - Aspartate Aminotransferase (U/L)
+    - INR - International Normalized Ratio (no units)
+    """)
+    return
+
+
+@app.cell
+def _(mo, valeos_transplant_df):
+    # Organ selector for population liver function
+    liver_function_organ_options = valeos_transplant_df['transplant_type'].unique().tolist()
+
+    liver_function_organ_selected = mo.ui.dropdown(
+        options=liver_function_organ_options,
+        label="Select organ type for population liver function analysis:",
+        value='liver'
+    )
+
+    liver_function_organ_selected
+    return (liver_function_organ_selected,)
+
+
+@app.cell
+def _(population_liver_function_display):
+    population_liver_function_display
+    return
+
+
+@app.cell
+def _(
+    create_population_liver_function_chart,
+    liver_function_organ_selected,
+    mo,
+    valeos_hospitalization_df,
+    valeos_labs_df,
+    valeos_transplant_df,
+):
+    # Get selected organ type for liver function analysis
+    liver_function_organ_type = liver_function_organ_selected.value if hasattr(liver_function_organ_selected, 'value') else None
+
+    # Create population liver function chart
+    population_lft_chart, population_lft_error_msg = create_population_liver_function_chart(
+        liver_function_organ_type, valeos_labs_df, valeos_transplant_df, valeos_hospitalization_df
+    )
+
+    if population_lft_error_msg:
+        population_liver_function_display = mo.md(f"**{population_lft_error_msg}**")
+    elif population_lft_chart is not None:
+        population_liver_function_display = mo.as_html(population_lft_chart)
+    else:
+        population_liver_function_display = mo.md("**No population liver function data available**")
+
+    return (population_liver_function_display,)
+
+
+@app.cell
+def _(pd, plt):
+    def create_population_liver_function_chart(selected_organ_type, labs_df, transplant_df, hosp_df):
+        """Create population-level liver function test summary around transplant"""
+        if selected_organ_type is None or labs_df is None or transplant_df is None or hosp_df is None:
+            return None, "Missing required data"
+
+        # Define liver function test lab categories from CLIF schema
+        liver_function_labs = {
+            'Total Bilirubin': 'bilirubin_total',
+            'ALT': 'alt', 
+            'AST': 'ast',
+            'INR': 'inr'
+        }
+
+        # Filter transplant data for selected organ
+        organ_transplants = transplant_df[transplant_df['transplant_type'] == selected_organ_type].copy()
+        if organ_transplants.empty:
+            return None, f"No {selected_organ_type} transplant data found"
+
+        # Convert transplant dates
+        organ_transplants['transplant_date'] = pd.to_datetime(organ_transplants['transplant_date'], utc=True)
+
+        # Get all patients for this organ type
+        organ_patient_ids = organ_transplants['patient_id'].unique()
+
+        # Get hospitalization data for these patients
+        organ_hospitalizations = hosp_df[hosp_df['patient_id'].isin(organ_patient_ids)].copy()
+        organ_hospitalizations['admission_dttm'] = pd.to_datetime(organ_hospitalizations['admission_dttm'], utc=True)
+        organ_hospitalizations['discharge_dttm'] = pd.to_datetime(organ_hospitalizations['discharge_dttm'], utc=True)
+
+        # Get hospitalization IDs
+        organ_hosp_ids = organ_hospitalizations['hospitalization_id'].unique()
+
+        # Filter lab data for liver function tests
+        organ_lab_data = labs_df[
+            (labs_df['hospitalization_id'].isin(organ_hosp_ids)) & 
+            (labs_df['lab_category'].isin(liver_function_labs.values()))
+        ].copy()
+
+        if organ_lab_data.empty:
+            return None, f"No liver function test data found for {selected_organ_type} patients"
+
+        # Process lab dates
+        organ_lab_data['lab_result_dttm'] = pd.to_datetime(organ_lab_data['lab_result_dttm'], utc=True)
+
+        # Merge with transplant dates and hospitalization data
+        organ_lab_data = organ_lab_data.merge(
+            organ_hospitalizations[['hospitalization_id', 'patient_id']], 
+            on='hospitalization_id', how='left'
+        )
+        organ_lab_data = organ_lab_data.merge(
+            organ_transplants[['patient_id', 'transplant_date']], 
+            on='patient_id', how='left'
+        )
+
+        # Calculate days relative to transplant
+        organ_lab_data['days_from_transplant'] = (
+            organ_lab_data['lab_result_dttm'] - organ_lab_data['transplant_date']
+        ).dt.total_seconds() / (24 * 3600)
+
+        # Filter to -30 to +30 days around transplant
+        lft_data = organ_lab_data[
+            (organ_lab_data['days_from_transplant'] >= -30) & 
+            (organ_lab_data['days_from_transplant'] <= 30)
+        ].copy()
+
+        if lft_data.empty:
+            return None, f"No liver function data found in ±30 days around {selected_organ_type} transplant"
+
+        # Filter out non-numeric values
+        lft_data = lft_data.dropna(subset=['lab_value_numeric'])
+        lft_data = lft_data[lft_data['lab_value_numeric'] > 0]  # Remove zero or negative values
+
+        # Round days to nearest 3-day period for grouping
+        lft_data['day_rounded'] = (lft_data['days_from_transplant'] / 3).round() * 3
+
+        # Calculate median, quartiles, and count for each lab by day period
+        daily_stats = lft_data.groupby(['day_rounded', 'lab_category'])['lab_value_numeric'].agg([
+            'median', 'count', 
+            lambda x: x.quantile(0.25),  # Q1
+            lambda x: x.quantile(0.75)   # Q3
+        ]).reset_index()
+        daily_stats.columns = ['day_rounded', 'lab_category', 'median_value', 'sample_count', 'q1_value', 'q3_value']
+
+        # Filter out periods with very few samples
+        daily_stats = daily_stats[daily_stats['sample_count'] >= 3]
+
+        if daily_stats.empty:
+            return None, f"Insufficient liver function data for {selected_organ_type} analysis"
+
+        # Create subplot for each liver function test
+        plt.style.use('default')
+        fig, axes = plt.subplots(2, 2, figsize=(14, 10), sharex=True)
+        axes = axes.flatten()
+
+        # Define colors and normal ranges for each lab
+        lab_colors = {
+            'bilirubin_total': '#ff7f0e',   # Orange
+            'alt': '#2ca02c',               # Green
+            'ast': '#d62728',               # Red
+            'inr': '#9467bd'                # Purple
+        }
+
+        normal_ranges = {
+            'bilirubin_total': (0.2, 1.2),     # mg/dL
+            'alt': (7, 35),                     # U/L (may vary by lab)
+            'ast': (8, 40),                     # U/L (may vary by lab)
+            'inr': (0.8, 1.2)                   # (no units)
+        }
+
+        lab_units = {
+            'bilirubin_total': 'mg/dL',
+            'alt': 'U/L',
+            'ast': 'U/L', 
+            'inr': '(no units)'
+        }
+
+        # Plot each liver function test
+        for i, (display_name, lab_cat) in enumerate(liver_function_labs.items()):
+            ax = axes[i]
+            lab_data = daily_stats[daily_stats['lab_category'] == lab_cat]
+
+            # Add normal range shading first
+            if lab_cat in normal_ranges:
+                normal_min, normal_max = normal_ranges[lab_cat]
+                ax.axhspan(normal_min, normal_max, alpha=0.2, color=lab_colors[lab_cat], label='Normal Range')
+
+            if not lab_data.empty:
+                color = lab_colors.get(lab_cat, '#1f77b4')
+
+                # Plot median line with markers
+                ax.plot(lab_data['day_rounded'], lab_data['median_value'], 
+                       color=color, linewidth=2, marker='o', markersize=6, 
+                       alpha=0.8, label=f'Median {display_name}')
+
+                # Add IQR vertical bars
+                for _, row in lab_data.iterrows():
+                    x_pos = row['day_rounded']
+                    median_val = row['median_value']
+                    q1_val = row['q1_value']
+                    q3_val = row['q3_value']
+
+                    # Draw vertical line from Q1 to Q3
+                    ax.plot([x_pos, x_pos], [q1_val, q3_val], 
+                           color=color, linewidth=3, alpha=0.6)
+
+                    # Draw horizontal lines at Q1 and Q3
+                    bar_width = 1.0  # Width of horizontal bars
+                    ax.plot([x_pos - bar_width/2, x_pos + bar_width/2], [q1_val, q1_val], 
+                           color=color, linewidth=2, alpha=0.6)
+                    ax.plot([x_pos - bar_width/2, x_pos + bar_width/2], [q3_val, q3_val], 
+                           color=color, linewidth=2, alpha=0.6)
+
+                # Set appropriate y-axis limits including IQR data
+                data_min = min(lab_data['q1_value'].min(), lab_data['median_value'].min())
+                data_max = max(lab_data['q3_value'].max(), lab_data['median_value'].max())
+
+                if lab_cat in normal_ranges:
+                    norm_min, norm_max = normal_ranges[lab_cat]
+                    y_min = min(data_min * 0.9, norm_min * 0.5)
+                    y_max = max(data_max * 1.1, norm_max * 1.5)
+                else:
+                    y_min = data_min * 0.9
+                    y_max = data_max * 1.1
+
+                ax.set_ylim(y_min, y_max)
+
+            # Add transplant reference line
+            ax.axvline(x=0, color='green', linestyle='--', linewidth=2, alpha=0.7, label='Transplant Day')
+
+            # Formatting for each subplot
+            unit = lab_units.get(lab_cat, '')
+            ax.set_ylabel(f'{display_name} ({unit})', fontsize=11)
+            ax.set_title(f'{display_name}', fontsize=12, fontweight='bold')
+            ax.grid(True, alpha=0.3)
+            ax.set_xlim(-30, 30)
+
+            # Add legend for first subplot with IQR explanation
+            if i == 0:
+                # Create custom legend elements
+                from matplotlib.lines import Line2D
+                legend_elements = [
+                    Line2D([0], [0], color='green', linestyle='--', linewidth=2, label='Transplant Day'),
+                    Line2D([0], [0], color=lab_colors['bilirubin_total'], alpha=0.2, linewidth=10, label='Normal Range'),
+                    Line2D([0], [0], color='black', marker='o', linewidth=2, markersize=6, label='Median'),
+                    Line2D([0], [0], color='black', linewidth=3, alpha=0.6, label='Interquartile Range (IQR)')
+                ]
+                ax.legend(handles=legend_elements, loc='upper right', fontsize=9)
+
+        # Set shared x-axis labels
+        for ax in axes[2:]:  # Bottom row
+            ax.set_xlabel('Days Relative to Transplant', fontsize=12)
+
+        # Add overall title
+        fig.suptitle(f'Population Liver Function Tests - {selected_organ_type.title()} Transplant Recipients', 
+                     fontsize=14, fontweight='bold')
+
+        plt.tight_layout()
+
+        return fig, None
+
+    return (create_population_liver_function_chart,)
 
 
 @app.cell(hide_code=True)
