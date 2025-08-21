@@ -40,7 +40,7 @@ The cohort will be identified using the following CPT code list
 | 50360    | PR RENAL ALTRNSPLJ IMPLTJ GRF W/O RCP NEPHRECTOMY            | kidney |
 | 50360    | HC RENAL ALLOTRANSPLANTATION, IMPLANT GRAFT W/O DONOR        | kidney |
 | 50365    | PR RENAL ALTRNSPLJ IMPLTJ GRF W/RCP NEPHRECTOMY              | kidney |
-| 50380    | PR RENAL AUTOTRANSPLANTATION REIMPLANTATION KIDNEY          | kidney |
+
 
 
 ## Expected Results
